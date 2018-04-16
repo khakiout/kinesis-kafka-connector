@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -34,9 +36,9 @@ public class FirehoseSinkTask extends SinkTask {
 	private AmazonKinesisFirehoseClient firehoseClient;
 
 	private boolean batch;
-	
+
 	private int batchSize;
-	
+
 	private int batchSizeInBytes;
 
 	@Override
@@ -62,14 +64,20 @@ public class FirehoseSinkTask extends SinkTask {
 	public void start(Map<String, String> props) {
 
 		batch = Boolean.parseBoolean(props.get(FirehoseSinkConnector.BATCH));
-		
+
 		batchSize = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE));
-		
+
 		batchSizeInBytes = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE_IN_BYTES));
-		
+
 		deliveryStreamName = props.get(FirehoseSinkConnector.DELIVERY_STREAM);
 
-		firehoseClient = new AmazonKinesisFirehoseClient(new DefaultAWSCredentialsProviderChain());
+		String accessKey  = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
+
+		String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
+
+		AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+
+		firehoseClient = new AmazonKinesisFirehoseClient(awsCredentials);
 
 		firehoseClient.setRegion(RegionUtils.getRegion(props.get(FirehoseSinkConnector.REGION)));
 
@@ -114,7 +122,7 @@ public class FirehoseSinkTask extends SinkTask {
 
 		// Put Record Batch records. Max No.Of Records we can put in a
 		// single put record batch request is 500 and total size < 4MB
-		PutRecordBatchResult putRecordBatchResult = null; 
+		PutRecordBatchResult putRecordBatchResult = null;
 		try {
 			 putRecordBatchResult = firehoseClient.putRecordBatch(putRecordBatchRequest);
 		}catch(AmazonKinesisFirehoseException akfe){
@@ -122,7 +130,7 @@ public class FirehoseSinkTask extends SinkTask {
 		}catch(Exception e){
 			 System.out.println("Connector Exception" + e.getLocalizedMessage());
 		}
-		return putRecordBatchResult; 
+		return putRecordBatchResult;
 	}
 
 	/**
@@ -138,7 +146,7 @@ public class FirehoseSinkTask extends SinkTask {
 			recordList.add(record);
 			recordsInBatch++;
 			recordsSizeInBytes += record.getData().capacity();
-						
+
 			if (recordsInBatch == batchSize || recordsSizeInBytes > batchSizeInBytes) {
 				putRecordBatch(recordList);
 				recordList.clear();
@@ -162,7 +170,7 @@ public class FirehoseSinkTask extends SinkTask {
 			PutRecordRequest putRecordRequest = new PutRecordRequest();
 			putRecordRequest.setDeliveryStreamName(deliveryStreamName);
 			putRecordRequest.setRecord(DataUtility.createRecord(sinkRecord));
-			
+
 			PutRecordResult putRecordResult;
 			try {
 				firehoseClient.putRecord(putRecordRequest);

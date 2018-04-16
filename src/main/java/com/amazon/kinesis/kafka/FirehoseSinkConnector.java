@@ -13,43 +13,51 @@ import org.apache.kafka.connect.sink.SinkConnector;
 public class FirehoseSinkConnector extends SinkConnector {
 
 	public static final String DELIVERY_STREAM = "deliveryStream";
-	
-	public static final String REGION = "region";
-	
+
 	public static final String BATCH = "batch";
 	
 	public static final String BATCH_SIZE = "batchSize";
 	
 	public static final String BATCH_SIZE_IN_BYTES = "batchSizeInBytes";
+
+	public static final String REGION = "region";
+
+	public static final String AWS_ACCESS_KEY = "accessKey";
+
+	public static final String AWS_SECRET_KEY = "secretKey";
 	
 	private String deliveryStream;
-	
-	private String region;
 	
 	private String batch;
 	
 	private String batchSize;
 	
-	private String batchSizeInBytes; 
-	
+	private String batchSizeInBytes;
+
+	private String region;
+
+	private String accessKey;
+
+	private String secretKey;
+
 	private final String MAX_BATCH_SIZE = "500";
 	
 	private final String MAX_BATCH_SIZE_IN_BYTES = "3670016";
 
 	@Override
 	public void start(Map<String, String> props) {
-		
 		deliveryStream = props.get(DELIVERY_STREAM);
 		region = props.get(REGION);
 		batch = props.get(BATCH);	
 		batchSize = props.get(BATCH_SIZE);
 		batchSizeInBytes = props.get(BATCH_SIZE_IN_BYTES);
+		accessKey = props.get(AWS_ACCESS_KEY);
+		secretKey = props.get(AWS_SECRET_KEY);
 	}
 
 	@Override
 	public void stop() {
 		// TODO Auto-generated method stub
-
 	}
 
 	@Override
@@ -67,6 +75,12 @@ public class FirehoseSinkConnector extends SinkConnector {
 			
 			if(region != null)
 				config.put(REGION, region);
+
+			if (accessKey != null)
+				config.put(AWS_ACCESS_KEY, accessKey);
+
+			if (secretKey != null)
+				config.put(AWS_SECRET_KEY, secretKey);
 			
 			if(batch != null)
 				config.put(BATCH, batch);
