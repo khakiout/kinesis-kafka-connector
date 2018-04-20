@@ -24,12 +24,16 @@ import com.amazonaws.services.kinesisfirehose.model.PutRecordBatchResult;
 import com.amazonaws.services.kinesisfirehose.model.PutRecordRequest;
 import com.amazonaws.services.kinesisfirehose.model.PutRecordResult;
 import com.amazonaws.services.kinesisfirehose.model.Record;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author nehalmeh
  *
  */
 public class FirehoseSinkTask extends SinkTask {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(FirehoseSinkTask.class);
 
 	private String deliveryStreamName;
 
@@ -102,9 +106,11 @@ public class FirehoseSinkTask extends SinkTask {
 		DescribeDeliveryStreamResult describeDeliveryStreamResult = firehoseClient
 				.describeDeliveryStream(describeDeliveryStreamRequest);
 
-		if (!describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus().equals("ACTIVE"))
+		if (!describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus().equals("ACTIVE")) {
+			LOGGER.error("Connector can't start to do inactive delivery stream.");
 			throw new ConfigException("Connecter cannot start as configured delivery stream is not active"
-					+ describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus());
+				+ describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus());
+		}
 
 	}
 
@@ -126,9 +132,9 @@ public class FirehoseSinkTask extends SinkTask {
 		try {
 			 putRecordBatchResult = firehoseClient.putRecordBatch(putRecordBatchRequest);
 		}catch(AmazonKinesisFirehoseException akfe){
-			 System.out.println("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
+			 LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
 		}catch(Exception e){
-			 System.out.println("Connector Exception" + e.getLocalizedMessage());
+			 LOGGER.error("Connector Exception" + e.getLocalizedMessage());
 		}
 		return putRecordBatchResult;
 	}
@@ -175,9 +181,9 @@ public class FirehoseSinkTask extends SinkTask {
 			try {
 				firehoseClient.putRecord(putRecordRequest);
 			}catch(AmazonKinesisFirehoseException akfe){
-				 System.out.println("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
+				 LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
 			}catch(Exception e){
-				 System.out.println("Connector Exception" + e.getLocalizedMessage());
+				 LOGGER.error("Connector Exception" + e.getLocalizedMessage());
 			}
 		}
 	}
