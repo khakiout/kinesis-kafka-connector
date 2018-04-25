@@ -13,7 +13,6 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClient;
 import com.amazonaws.services.kinesisfirehose.model.AmazonKinesisFirehoseException;
@@ -29,162 +28,164 @@ import org.slf4j.LoggerFactory;
 
 /**
  * @author nehalmeh
- *
  */
 public class FirehoseSinkTask extends SinkTask {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(FirehoseSinkTask.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FirehoseSinkTask.class);
 
-	private String deliveryStreamName;
+    private String deliveryStreamName;
 
-	private AmazonKinesisFirehoseClient firehoseClient;
+    private AmazonKinesisFirehoseClient firehoseClient;
 
-	private boolean batch;
+    private boolean batch;
 
-	private int batchSize;
+    private int batchSize;
 
-	private int batchSizeInBytes;
+    private int batchSizeInBytes;
 
-	@Override
-	public String version() {
-		return new FirehoseSinkConnector().version();
-	}
+    @Override
+    public String version() {
+        return new FirehoseSinkConnector().version();
+    }
 
-	@Override
-	public void flush(Map<TopicPartition, OffsetAndMetadata> arg0) {
-	}
+    @Override
+    public void flush(Map<TopicPartition, OffsetAndMetadata> arg0) {
+    }
 
-	@Override
-	public void put(Collection<SinkRecord> sinkRecords) {
+    @Override
+    public void put(Collection<SinkRecord> sinkRecords) {
 
-		if (batch)
-			putRecordsInBatch(sinkRecords);
-		else
-			putRecords(sinkRecords);
+        if (batch) {
+            putRecordsInBatch(sinkRecords);
+        } else {
+            putRecords(sinkRecords);
+        }
 
-	}
+    }
 
-	@Override
-	public void start(Map<String, String> props) {
+    @Override
+    public void start(Map<String, String> props) {
 
-		batch = Boolean.parseBoolean(props.get(FirehoseSinkConnector.BATCH));
+        batch = Boolean.parseBoolean(props.get(FirehoseSinkConnector.BATCH));
 
-		batchSize = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE));
+        batchSize = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE));
 
-		batchSizeInBytes = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE_IN_BYTES));
+        batchSizeInBytes = Integer.parseInt(props.get(FirehoseSinkConnector.BATCH_SIZE_IN_BYTES));
 
-		deliveryStreamName = props.get(FirehoseSinkConnector.DELIVERY_STREAM);
+        deliveryStreamName = props.get(FirehoseSinkConnector.DELIVERY_STREAM);
 
-		String accessKey  = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
+        String accessKey = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
 
-		String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
+        String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
 
-		AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+        AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
 
-		firehoseClient = new AmazonKinesisFirehoseClient(awsCredentials);
+        firehoseClient = new AmazonKinesisFirehoseClient(awsCredentials);
 
-		firehoseClient.setRegion(RegionUtils.getRegion(props.get(FirehoseSinkConnector.REGION)));
+        firehoseClient.setRegion(RegionUtils.getRegion(props.get(FirehoseSinkConnector.REGION)));
 
-		// Validate delivery stream
-		validateDeliveryStream();
-	}
+        // Validate delivery stream
+        validateDeliveryStream();
+    }
 
-	@Override
-	public void stop() {
+    @Override
+    public void stop() {
 
-	}
-
-
-	/**
-	 * Validates status of given Amazon Kinesis Firehose Delivery Stream.
-	 */
-	private void validateDeliveryStream() {
-		DescribeDeliveryStreamRequest describeDeliveryStreamRequest = new DescribeDeliveryStreamRequest();
-
-		describeDeliveryStreamRequest.setDeliveryStreamName(deliveryStreamName);
-
-		DescribeDeliveryStreamResult describeDeliveryStreamResult = firehoseClient
-				.describeDeliveryStream(describeDeliveryStreamRequest);
-
-		if (!describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus().equals("ACTIVE")) {
-			LOGGER.error("Connector can't start to do inactive delivery stream.");
-			throw new ConfigException("Connecter cannot start as configured delivery stream is not active"
-				+ describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus());
-		}
-
-	}
-
-	/**
-	 * Method to perform PutRecordBatch operation with the given record list.
-	 *
-	 * @param recordList
-	 *            the collection of records
-	 * @return the output of PutRecordBatch
-	 */
-	private PutRecordBatchResult putRecordBatch(List<Record> recordList) {
-		PutRecordBatchRequest putRecordBatchRequest = new PutRecordBatchRequest();
-		putRecordBatchRequest.setDeliveryStreamName(deliveryStreamName);
-		putRecordBatchRequest.setRecords(recordList);
-
-		// Put Record Batch records. Max No.Of Records we can put in a
-		// single put record batch request is 500 and total size < 4MB
-		PutRecordBatchResult putRecordBatchResult = null;
-		try {
-			 putRecordBatchResult = firehoseClient.putRecordBatch(putRecordBatchRequest);
-		}catch(AmazonKinesisFirehoseException akfe){
-			 LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
-		}catch(Exception e){
-			 LOGGER.error("Connector Exception" + e.getLocalizedMessage());
-		}
-		return putRecordBatchResult;
-	}
-
-	/**
-	 * @param sinkRecords
-	 */
-	private void putRecordsInBatch(Collection<SinkRecord> sinkRecords) {
-		List<Record> recordList = new ArrayList<Record>();
-		int recordsInBatch = 0;
-		int recordsSizeInBytes = 0;
-
-		for (SinkRecord sinkRecord : sinkRecords) {
-			Record record = DataUtility.createRecord(sinkRecord);
-			recordList.add(record);
-			recordsInBatch++;
-			recordsSizeInBytes += record.getData().capacity();
-
-			if (recordsInBatch == batchSize || recordsSizeInBytes > batchSizeInBytes) {
-				putRecordBatch(recordList);
-				recordList.clear();
-				recordsInBatch = 0;
-				recordsSizeInBytes = 0;
-			}
-		}
-
-		if (recordsInBatch > 0) {
-			putRecordBatch(recordList);
-		}
-	}
+    }
 
 
-	/**
-	 * @param sinkRecords
-	 */
-	private void putRecords(Collection<SinkRecord> sinkRecords) {
-		for (SinkRecord sinkRecord : sinkRecords) {
+    /**
+     * Validates status of given Amazon Kinesis Firehose Delivery Stream.
+     */
+    private void validateDeliveryStream() {
+        DescribeDeliveryStreamRequest describeDeliveryStreamRequest = new DescribeDeliveryStreamRequest();
 
-			PutRecordRequest putRecordRequest = new PutRecordRequest();
-			putRecordRequest.setDeliveryStreamName(deliveryStreamName);
-			putRecordRequest.setRecord(DataUtility.createRecord(sinkRecord));
+        describeDeliveryStreamRequest.setDeliveryStreamName(deliveryStreamName);
 
-			PutRecordResult putRecordResult;
-			try {
-				firehoseClient.putRecord(putRecordRequest);
-			}catch(AmazonKinesisFirehoseException akfe){
-				 LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
-			}catch(Exception e){
-				 LOGGER.error("Connector Exception" + e.getLocalizedMessage());
-			}
-		}
-	}
+        DescribeDeliveryStreamResult describeDeliveryStreamResult = firehoseClient
+            .describeDeliveryStream(describeDeliveryStreamRequest);
+
+        if (!describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamStatus()
+            .equals("ACTIVE")) {
+            LOGGER.error("Connector can't start to do inactive delivery stream.");
+            throw new ConfigException(
+                "Connecter cannot start as configured delivery stream is not active"
+                    + describeDeliveryStreamResult.getDeliveryStreamDescription()
+                    .getDeliveryStreamStatus());
+        }
+
+    }
+
+    /**
+     * Method to perform PutRecordBatch operation with the given record list.
+     *
+     * @param recordList the collection of records
+     * @return the output of PutRecordBatch
+     */
+    private PutRecordBatchResult putRecordBatch(List<Record> recordList) {
+        PutRecordBatchRequest putRecordBatchRequest = new PutRecordBatchRequest();
+        putRecordBatchRequest.setDeliveryStreamName(deliveryStreamName);
+        putRecordBatchRequest.setRecords(recordList);
+
+        // Put Record Batch records. Max No.Of Records we can put in a
+        // single put record batch request is 500 and total size < 4MB
+        PutRecordBatchResult putRecordBatchResult = null;
+        try {
+            putRecordBatchResult = firehoseClient.putRecordBatch(putRecordBatchRequest);
+        } catch (AmazonKinesisFirehoseException akfe) {
+            LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
+        } catch (Exception e) {
+            LOGGER.error("Connector Exception" + e.getLocalizedMessage());
+        }
+        return putRecordBatchResult;
+    }
+
+    /**
+     * @param sinkRecords
+     */
+    private void putRecordsInBatch(Collection<SinkRecord> sinkRecords) {
+        List<Record> recordList = new ArrayList<Record>();
+        int recordsInBatch = 0;
+        int recordsSizeInBytes = 0;
+
+        for (SinkRecord sinkRecord : sinkRecords) {
+            Record record = DataUtility.createRecord(sinkRecord);
+            recordList.add(record);
+            recordsInBatch++;
+            recordsSizeInBytes += record.getData().capacity();
+
+            if (recordsInBatch == batchSize || recordsSizeInBytes > batchSizeInBytes) {
+                putRecordBatch(recordList);
+                recordList.clear();
+                recordsInBatch = 0;
+                recordsSizeInBytes = 0;
+            }
+        }
+
+        if (recordsInBatch > 0) {
+            putRecordBatch(recordList);
+        }
+    }
+
+
+    /**
+     * @param sinkRecords
+     */
+    private void putRecords(Collection<SinkRecord> sinkRecords) {
+        for (SinkRecord sinkRecord : sinkRecords) {
+
+            PutRecordRequest putRecordRequest = new PutRecordRequest();
+            putRecordRequest.setDeliveryStreamName(deliveryStreamName);
+            putRecordRequest.setRecord(DataUtility.createRecord(sinkRecord));
+
+            PutRecordResult putRecordResult;
+            try {
+                firehoseClient.putRecord(putRecordRequest);
+            } catch (AmazonKinesisFirehoseException akfe) {
+                LOGGER.error("Amazon Kinesis Firehose Exception:" + akfe.getLocalizedMessage());
+            } catch (Exception e) {
+                LOGGER.error("Connector Exception" + e.getLocalizedMessage());
+            }
+        }
+    }
 }
