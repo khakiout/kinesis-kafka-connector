@@ -1,5 +1,9 @@
 package com.amazon.kinesis.kafka;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehose;
+import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClientBuilder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -13,7 +17,6 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
-import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClient;
 import com.amazonaws.services.kinesisfirehose.model.AmazonKinesisFirehoseException;
 import com.amazonaws.services.kinesisfirehose.model.DescribeDeliveryStreamRequest;
@@ -35,7 +38,7 @@ public class FirehoseSinkTask extends SinkTask {
 
     private String deliveryStreamName;
 
-    private AmazonKinesisFirehoseClient firehoseClient;
+    private AmazonKinesisFirehose firehoseClient;
 
     private boolean batch;
 
@@ -75,14 +78,16 @@ public class FirehoseSinkTask extends SinkTask {
         deliveryStreamName = props.get(FirehoseSinkConnector.DELIVERY_STREAM);
 
         String accessKey = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
-
         String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
+        String region = props.get(FirehoseSinkConnector.REGION);
 
         AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+        AWSCredentialsProvider provider = new AWSStaticCredentialsProvider(awsCredentials);
 
-        firehoseClient = new AmazonKinesisFirehoseClient(awsCredentials);
-
-        firehoseClient.setRegion(RegionUtils.getRegion(props.get(FirehoseSinkConnector.REGION)));
+        AmazonKinesisFirehoseClientBuilder builder = AmazonKinesisFirehoseClient.builder();
+        builder.setCredentials(provider);
+        builder.setRegion(region);
+        firehoseClient = builder.build();
 
         // Validate delivery stream
         validateDeliveryStream();
@@ -92,7 +97,6 @@ public class FirehoseSinkTask extends SinkTask {
     public void stop() {
 
     }
-
 
     /**
      * Validates status of given Amazon Kinesis Firehose Delivery Stream.
