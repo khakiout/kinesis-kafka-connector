@@ -22,10 +22,6 @@ public class FirehoseSinkConnector extends SinkConnector {
 
 	public static final String REGION = "region";
 
-	public static final String AWS_ACCESS_KEY = "accessKey";
-
-	public static final String AWS_SECRET_KEY = "secretKey";
-	
 	private String deliveryStream;
 	
 	private String batch;
@@ -35,10 +31,6 @@ public class FirehoseSinkConnector extends SinkConnector {
 	private String batchSizeInBytes;
 
 	private String region;
-
-	private String accessKey;
-
-	private String secretKey;
 
 	private final String MAX_BATCH_SIZE = "500";
 	
@@ -51,8 +43,6 @@ public class FirehoseSinkConnector extends SinkConnector {
 		batch = props.get(BATCH);	
 		batchSize = props.get(BATCH_SIZE);
 		batchSizeInBytes = props.get(BATCH_SIZE_IN_BYTES);
-		accessKey = props.get(AWS_ACCESS_KEY);
-		secretKey = props.get(AWS_SECRET_KEY);
 	}
 
 	@Override
@@ -76,12 +66,6 @@ public class FirehoseSinkConnector extends SinkConnector {
 			if(region != null)
 				config.put(REGION, region);
 
-			if (accessKey != null)
-				config.put(AWS_ACCESS_KEY, accessKey);
-
-			if (secretKey != null)
-				config.put(AWS_SECRET_KEY, secretKey);
-			
 			if(batch != null)
 				config.put(BATCH, batch);
 			

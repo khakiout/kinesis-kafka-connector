@@ -2,6 +2,7 @@ package com.amazon.kinesis.kafka;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehose;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClientBuilder;
 import java.util.ArrayList;
@@ -10,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -24,7 +24,6 @@ import com.amazonaws.services.kinesisfirehose.model.DescribeDeliveryStreamResult
 import com.amazonaws.services.kinesisfirehose.model.PutRecordBatchRequest;
 import com.amazonaws.services.kinesisfirehose.model.PutRecordBatchResult;
 import com.amazonaws.services.kinesisfirehose.model.PutRecordRequest;
-import com.amazonaws.services.kinesisfirehose.model.PutRecordResult;
 import com.amazonaws.services.kinesisfirehose.model.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,11 +76,10 @@ public class FirehoseSinkTask extends SinkTask {
 
         deliveryStreamName = props.get(FirehoseSinkConnector.DELIVERY_STREAM);
 
-        String accessKey = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
-        String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
         String region = props.get(FirehoseSinkConnector.REGION);
 
-        AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+        AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
+        AWSCredentials awsCredentials = awsCredentialsProvider.getCredentials();
         AWSCredentialsProvider provider = new AWSStaticCredentialsProvider(awsCredentials);
 
         AmazonKinesisFirehoseClientBuilder builder = AmazonKinesisFirehoseClient.builder();
@@ -182,7 +180,6 @@ public class FirehoseSinkTask extends SinkTask {
             putRecordRequest.setDeliveryStreamName(deliveryStreamName);
             putRecordRequest.setRecord(DataUtility.createRecord(sinkRecord));
 
-            PutRecordResult putRecordResult;
             try {
                 firehoseClient.putRecord(putRecordRequest);
             } catch (AmazonKinesisFirehoseException akfe) {

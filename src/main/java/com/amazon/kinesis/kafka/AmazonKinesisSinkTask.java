@@ -3,7 +3,6 @@ package com.amazon.kinesis.kafka;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -295,9 +294,8 @@ public class AmazonKinesisSinkTask extends SinkTask {
 
         sleepCycles = Integer.parseInt(props.get(AmazonKinesisSinkConnector.SLEEP_CYCLES));
 
-        String accessKey = props.get(FirehoseSinkConnector.AWS_ACCESS_KEY);
-        String secretKey = props.get(FirehoseSinkConnector.AWS_SECRET_KEY);
-        AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+        AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
+        AWSCredentials awsCredentials = awsCredentialsProvider.getCredentials();
         credentialsProvider = new AWSStaticCredentialsProvider(awsCredentials);
 
         if (!singleKinesisProducerPerPartition) {
