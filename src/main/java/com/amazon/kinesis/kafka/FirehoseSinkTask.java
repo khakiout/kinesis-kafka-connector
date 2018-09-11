@@ -1,8 +1,7 @@
 package com.amazon.kinesis.kafka;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehose;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClientBuilder;
 import java.util.ArrayList;
@@ -10,7 +9,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import com.amazonaws.auth.AWSCredentials;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -78,9 +76,7 @@ public class FirehoseSinkTask extends SinkTask {
 
         String region = props.get(FirehoseSinkConnector.REGION);
 
-        AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
-        AWSCredentials awsCredentials = awsCredentialsProvider.getCredentials();
-        AWSCredentialsProvider provider = new AWSStaticCredentialsProvider(awsCredentials);
+        AWSCredentialsProvider provider = new InstanceProfileCredentialsProvider(false);
 
         AmazonKinesisFirehoseClientBuilder builder = AmazonKinesisFirehoseClient.builder();
         builder.setCredentials(provider);

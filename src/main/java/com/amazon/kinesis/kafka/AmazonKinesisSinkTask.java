@@ -1,8 +1,7 @@
 package com.amazon.kinesis.kafka;
 
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +13,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.kinesis.producer.Attempt;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
@@ -294,9 +292,7 @@ public class AmazonKinesisSinkTask extends SinkTask {
 
         sleepCycles = Integer.parseInt(props.get(AmazonKinesisSinkConnector.SLEEP_CYCLES));
 
-        AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
-        AWSCredentials awsCredentials = awsCredentialsProvider.getCredentials();
-        credentialsProvider = new AWSStaticCredentialsProvider(awsCredentials);
+        credentialsProvider = new InstanceProfileCredentialsProvider(false);
 
         if (!singleKinesisProducerPerPartition) {
             kinesisProducer = getKinesisProducer();
